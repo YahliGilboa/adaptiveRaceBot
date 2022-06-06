@@ -8,6 +8,7 @@ from Explosion import Explosion
 import pygame
 import math
 import random
+import neat
 screenWidth,screenHeight = 1352,855 #defining window height according to background image size
 WIN = pygame.display.set_mode((screenWidth,screenHeight)) #defining the window through pygame - so we can use it to open a window on screen in the resulotion of the background
 
@@ -27,7 +28,7 @@ startingPos = [screenWidth//2 - raceCar.get_width()//2, screenHeight*0.6]
 
 Lborder,Rborder,Tborder,Bborder = 409, 942,-1,855 #borders
 
-racerHealth = 3
+racerHealth = 1
 
 immunityTime = 120 #120 frames of immunty, while game runs at 60 frames per second, meaning 2 seconds of immunity
 rocketMinTime = 120
@@ -53,6 +54,7 @@ def checkCollisions(racer,Cars,rocket):
             drawColRaceCar = 1
             racer.decHealth()
             racer.immunity = immunityTime
+            #racer- rocket collision:
     if rocket[0] != 0 and racer.immunity == 0:
         if racer.isCollided(rocket[0]):
             spawnExplosion(rocket)
@@ -195,6 +197,7 @@ def handleDespawn(Cars,rocket): #will handle despawn of all objects (cars, rocke
             rocket[1] = 0
         else:
             rocket[1].deSpawnTimer -= 1
+
 def draw_collider(entity):
     for collisionBox in entity.collider:
         pygame.draw.rect(WIN, (255, 255, 255), pygame.Rect(entity.position[0]+collisionBox.offsetX,entity.position[1]+collisionBox.offsetY,collisionBox.width,collisionBox.height))
@@ -205,31 +208,54 @@ def handleDrawnHealth(racer):
         WIN.blit(heart,tuple(startOffset))
         startOffset[0] += 60
 
-def draw_win(background,racer,Cars,rocket):
+def draw_win(background,racers,Cars,rocket):
     global drawColCar,drawColRaceCar
     #print(drawColCar,drawColRaceCar)
     WIN.blit(background,(0,0))
-    if drawColCar != 0:
-        draw_collider(drawColCar)
-        drawColCar = 0
-    if drawColRaceCar != 0:
-        draw_collider(racer)
-        drawColRaceCar = 0
+    #if drawColCar != 0:
+        #draw_collider(drawColCar)
+       # drawColCar = 0
+    #if drawColRaceCar != 0:
+        #draw_collider(racer)
+       # drawColRaceCar = 0
     # draw_collider(racer)
     # for car in Cars:
     #     draw_collider(car)
-
-    WIN.blit(raceCar, tuple(racer.position))
+    for racer in racers:
+        WIN.blit(raceCar, tuple(racer.position))
     for car in Cars:
         WIN.blit(car.texture,tuple(car.position))
-        handleDrawnHealth(racer)
+        #handleDrawnHealth(racer)
         if rocket[0] != 0:
             WIN.blit(rocket[0].texture, tuple(rocket[0].position))
         if rocket[1] != 0:
             WIN.blit(rocket[1].texture,tuple(rocket[1].position))
     pygame.display.update() #actually updates all changes made to screen
 
+def retInputs(Cars,racer,rocket):
+    racerLatitude = racer.position[1] +75 #latitude line, around the middle of the car
 
+    #classify cars for individual lanes
+    lanes = [[],[],[],[],[]]
+    for car in Cars:
+        lanes[car.lane].append(car)
+
+    output = [-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,]
+    index = 0
+    for lane in lanes:
+        for car in Lane:
+            dist = racerLatitude-(car.position[1]+car.texture.get_height()) #this is distance over latitude line
+
+            if dist>0:
+                output[index] = min(output[index],dist)
+            if distUnder <= 0:
+                output[index+1] = min(output[index],abs(dist))
+
+    index += 2
+
+    if rocket[0] != 0:
+            output[10] = (racer.position[0]+28)-rocket[0].position[0]
+            output[11] = racerLatitude - rocket[0].position[1]
 def handlePlayerMovement(racer,keysPressed):
 
     if keysPressed[pygame.K_a]:
@@ -266,31 +292,55 @@ def handlePlayerMovement(racer,keysPressed):
 
 
     racer.changePos()
-def main():
+def main(genomes,config):
+    nets = []
+    ge = []
+    racers = []
 
-    racer = Player(startingPos, raceCarCollider, [0, 0], raceCar, racerHealth, 0)
+    for g in genomes: #genomes contains lists of genomes of each network.
+        net = neat.nn.feed_forward(g,config) #creates the network with the limitations
+        nets.append(net) #adds the net to list of nets
+        racers.append(Player(startingPos, raceCarCollider, [0, 0], raceCar, racerHealth, 0)) #adds racer that correspinds with net
+        g.fitness = 0 #players initial fitness is 0
+        ge.append(g) #adds g to list of genomes
+    #racer = Player(startingPos, raceCarCollider, [0, 0], raceCar, racerHealth, 0)
+
     Cars =[]
     rocket = [0,0] #if rocket is 0 then there is no rocket on field. if it is a rocket type object than this object will act accordingly on field, second cell is for explosion. has to be list so i can pass by reference
-    clock = pygame.time.Clock()
+   # clock = pygame.time.Clock()
     stop = False
 
     while (stop != True):#while the game isnt supposed to stop, it will run
-        clock.tick(FPS)#makes sure the while loop runs 60 FPS, not more.
+      #  clock.tick(FPS)#makes sure the while loop runs 60 FPS, not more.
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 stop = True
 
-        keysPressed = pygame.key.get_pressed()
-        handlePlayerMovement(racer,keysPressed)
+        #keysPressed = pygame.key.get_pressed()
+        #handlePlayerMovement(racer,keysPressed)
         for car in Cars:
             car.changePos()
         if rocket[0] != 0:
             rocket[0].changePos()
-        checkCollisions(racer,Cars,rocket)
+        for racer in racers:
+            checkCollisions(racer,Cars,rocket)
+            handleRocket(rocket, racer)
+
         randomiserCar(Cars)
-        handleRocket(rocket, racer)
+
         handleDespawn(Cars, rocket)
-        draw_win(background,racer,Cars,rocket)
+
+
+        #checks which racers should be discarded
+        for x, racer in enumerate(racers):  # meaning, for index x corresponding with object "bird" in iterable "birds"
+            if racer.health == 0:
+                ge[x].fitness -= 1
+                racers.pop(x)
+                nets.pop(x)
+                ge.pop(x)
+        for g in ge:
+            g.fitness +=1
+        draw_win(background,racers,Cars,rocket)
         if racer.immunity != 0:
             racer.immunity -= 1
         if racer.health == 0:
@@ -298,8 +348,23 @@ def main():
 
 
     pygame.quit()
+main()
+
+def run(config_path):
+    config = neat.config.Config(neat.DefaultGenome,neat.DefaultReproduction,neat.DefaultSpeciesSet,neat.DefaultStagnation,config_path)
+
+    p = neat.population(config)
+
+    p.add_reporter(neat.StdOutReporter(True))
+    stats = neat.StatisticsReporter()
+    p.add_reporter(stats)
+
+    winner = p.run(main,50)
 
 if __name__ == "__main__": #this line makes sure that if an external file that imports this code tries to run this it wont be able to
-    
+    local_dir = os.path.dirname(__file__)
+    config_path = os.path.join(local_dir, "ConfigFile.txt")
+    run(config_path)
     main()
 
+#
