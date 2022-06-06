@@ -9,6 +9,8 @@ import pygame
 import math
 import random
 import neat
+import pickle
+
 screenWidth,screenHeight = 1352,855 #defining window height according to background image size
 WIN = pygame.display.set_mode((screenWidth,screenHeight)) #defining the window through pygame - so we can use it to open a window on screen in the resulotion of the background
 
@@ -208,6 +210,64 @@ def handleDrawnHealth(racer):
         WIN.blit(heart,tuple(startOffset))
         startOffset[0] += 60
 
+def indexToMove(index,racer):
+    if index == 0:
+        racer.velocity[0] = 0
+        racer.velocity[1] = -racerMaxVelocity
+
+    if index == 1:
+        racer.velocity[0] = racerMaxVelocity
+        racer.velocity[1] = -racerMaxVelocity
+
+    if index == 2:
+        racer.velocity[0] = racerMaxVelocity
+        racer.velocity[1] = 0
+
+    if index == 3:
+        racer.velocity[0] = racerMaxVelocity
+        racer.velocity[1] = racerMaxVelocity
+
+    if index == 4:
+        racer.velocity[0] = 0
+        racer.velocity[1] = racerMaxVelocity
+
+    if index == 5:
+        racer.velocity[0] = -racerMaxVelocity
+        racer.velocity[1] = racerMaxVelocity
+
+    if index == 6:
+        racer.velocity[0] = -racerMaxVelocity
+        racer.velocity[1] = 0
+
+    if index == 7:
+        racer.velocity[0] = -racerMaxVelocity
+        racer.velocity[1] = -racerMaxVelocity
+
+
+
+#this code makes sure  car stays within bounds
+    moveAfterChangeX = racer.position[0] + racer.velocity[0]
+    moveAfterChangeY = racer.position[1] + racer.velocity[1]
+
+    if moveAfterChangeX + racer.texture.get_width() > Rborder:
+        racer.velocity[0] = 0
+        racer.position[0] = Rborder - racer.texture.get_width()
+
+    if moveAfterChangeX <= Lborder:
+        racer.velocity[0] = 0
+        racer.position[0] = Lborder
+
+    if moveAfterChangeY <= Tborder:
+        racer.velocity[1] = 0
+        racer.position[1] = Tborder
+
+    if moveAfterChangeY + racer.texture.get_height() >= Bborder:
+        racer.velocity[1] = 0
+        racer.position[1] = Bborder - racer.texture.get_height()
+
+    racer.changePos()
+
+
 def draw_win(background,racers,Cars,rocket):
     global drawColCar,drawColRaceCar
     #print(drawColCar,drawColRaceCar)
@@ -232,73 +292,45 @@ def draw_win(background,racers,Cars,rocket):
             WIN.blit(rocket[1].texture,tuple(rocket[1].position))
     pygame.display.update() #actually updates all changes made to screen
 
-def retInputs(Cars,racer,rocket):
-    racerLatitude = racer.position[1] +75 #latitude line, around the middle of the car
 
-    #classify cars for individual lanes
-    lanes = [[],[],[],[],[]]
-    for car in Cars:
-        lanes[car.lane].append(car)
+def retInputs(Cars, racer, rocket):
+        racerLatitude = racer.position[1] + 75  # latitude line, around the middle of the car
+        racerXpos = racer.position[0] + 31 #gives the x coordinate of middle of racer
+        # classify cars for individual lanes
+        lanes = [[], [], [], [], []]
+        for car in Cars:
+            lanes[car.lane].append(car)
+        output = [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,racerXpos]
+        index = 0
+        for lane in lanes:
+            for car in lane:
+                dist = racerLatitude - car.position[1]  # this is distance over latitude line
+                if dist > 0:
+                    if output[index] == -1:
+                        output[index] = dist
+                    else:
+                        output[index] = min(output[index], dist)
 
-    output = [-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,]
-    index = 0
-    for lane in lanes:
-        for car in Lane:
-            dist = racerLatitude-(car.position[1]+car.texture.get_height()) #this is distance over latitude line
+                if dist <= 0:
+                    if output[index + 1] == -1:
+                        output[index + 1] = abs(dist)
+                    else:
+                        output[index + 1] = min(output[index], abs(dist))
 
-            if dist>0:
-                output[index] = min(output[index],dist)
-            if distUnder <= 0:
-                output[index+1] = min(output[index],abs(dist))
+            index += 2
 
-    index += 2
-
-    if rocket[0] != 0:
-            output[10] = (racer.position[0]+28)-rocket[0].position[0]
+        if rocket[0] != 0:
+            output[10] = (racer.position[0] + 28) - rocket[0].position[0]
             output[11] = racerLatitude - rocket[0].position[1]
-def handlePlayerMovement(racer,keysPressed):
+        return output
 
-    if keysPressed[pygame.K_a]:
-            racer.velocity[0] = -racerMaxVelocity
-    if keysPressed[pygame.K_d]:
-            racer.velocity[0] = racerMaxVelocity
-    if not keysPressed[pygame.K_d] and not keysPressed[pygame.K_a]: #can be changes to not xor
-        racer.velocity[0] = 0
-    if keysPressed[pygame.K_w]:
-        racer.velocity[1] = -racerMaxVelocity
-    if keysPressed[pygame.K_s]:
-        racer.velocity[1] = racerMaxVelocity
-    if not keysPressed[pygame.K_w] and not keysPressed[pygame.K_s]:
-        racer.velocity[1] = 0
-
-    moveAfterChangeX = racer.position[0] + racer.velocity[0]
-    moveAfterChangeY = racer.position[1] + racer.velocity[1]
-
-    if moveAfterChangeX + racer.texture.get_width() > Rborder:
-        racer.velocity[0] = 0
-        racer.position[0] = Rborder - racer.texture.get_width()
-
-    if moveAfterChangeX <= Lborder:
-        racer.velocity[0] = 0
-        racer.position[0] = Lborder
-
-    if moveAfterChangeY <= Tborder:
-        racer.velocity[1] = 0
-        racer.position[1] = Tborder
-
-    if moveAfterChangeY + racer.texture.get_height() >= Bborder:
-        racer.velocity[1] = 0
-        racer.position[1] = Bborder - racer.texture.get_height()
-
-
-    racer.changePos()
 def main(genomes,config):
     nets = []
     ge = []
     racers = []
-
-    for g in genomes: #genomes contains lists of genomes of each network.
-        net = neat.nn.feed_forward(g,config) #creates the network with the limitations
+    score = 0
+    for _, g in genomes: #genomes contains lists tuples of genomes of each network, underscore for ignoring the id part in the tuple .
+        net = neat.nn.feed_forward.FeedForwardNetwork.create(g,config) #creates the network with the limitations
         nets.append(net) #adds the net to list of nets
         racers.append(Player(startingPos, raceCarCollider, [0, 0], raceCar, racerHealth, 0)) #adds racer that correspinds with net
         g.fitness = 0 #players initial fitness is 0
@@ -307,16 +339,17 @@ def main(genomes,config):
 
     Cars =[]
     rocket = [0,0] #if rocket is 0 then there is no rocket on field. if it is a rocket type object than this object will act accordingly on field, second cell is for explosion. has to be list so i can pass by reference
-   # clock = pygame.time.Clock()
+    #clock = pygame.time.Clock()
     stop = False
 
     while (stop != True):#while the game isnt supposed to stop, it will run
-      #  clock.tick(FPS)#makes sure the while loop runs 60 FPS, not more.
+       # clock.tick(FPS)#makes sure the while loop runs 60 FPS, not more.
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 stop = True
-
-        #keysPressed = pygame.key.get_pressed()
+                pygame.quit()
+                quit()
+      #keysPressed = pygame.key.get_pressed()
         #handlePlayerMovement(racer,keysPressed)
         for car in Cars:
             car.changePos()
@@ -331,40 +364,71 @@ def main(genomes,config):
         handleDespawn(Cars, rocket)
 
 
-        #checks which racers should be discarded
+        #kills all losing racers
         for x, racer in enumerate(racers):  # meaning, for index x corresponding with object "bird" in iterable "birds"
             if racer.health == 0:
-                ge[x].fitness -= 1
+                ge[x].fitness -= 100
                 racers.pop(x)
                 nets.pop(x)
                 ge.pop(x)
-        for g in ge:
-            g.fitness +=1
-        draw_win(background,racers,Cars,rocket)
-        if racer.immunity != 0:
-            racer.immunity -= 1
-        if racer.health == 0:
+
+        # for x, racer in enumerate(racers):
+        #     if racer.position[0] <= Lborder or racer.position[0] + racer.texture.get_width() >= Rborder:
+        #         ge[x].fitness -= 1
+        #     if racer.position[1] <= Tborder:
+        #         ge[x].fitness -= 10
+        #     if racer.position[1] + racer.texture.get_height() >= Bborder:
+        #         ge[x].fitness += 0.5
+
+
+
+        for x, racer in enumerate(racers):
+                ge[x].fitness += 1
+                outputs = nets[x].activate(tuple(retInputs(Cars,racer,rocket)))
+                # this decides what the player will do
+                #find max output, meaning what car wants to go to:
+                max = outputs[0]
+                index = 0
+                for x,output in enumerate(outputs):
+                    if output > max:
+                        index = x
+                indexToMove(index, racer)
+
+        if len(racers) == 0:
             stop = True
+            break
+
+        for racer in racers:
+            if racer.immunity != 0:
+                racer.immunity -= 1
+        draw_win(background,racers,Cars,rocket)
+        score += 1
+        if score > 1000:
+            break
 
 
-    pygame.quit()
-main()
+
+
+
+
 
 def run(config_path):
     config = neat.config.Config(neat.DefaultGenome,neat.DefaultReproduction,neat.DefaultSpeciesSet,neat.DefaultStagnation,config_path)
 
-    p = neat.population(config)
+    p = neat.Population(config)
 
     p.add_reporter(neat.StdOutReporter(True))
     stats = neat.StatisticsReporter()
     p.add_reporter(stats)
 
-    winner = p.run(main,50)
-
+    winner = p.run(main,20000)
+    pickle_out = open("theBot","wb")
+    pickle.dump(winner,pickle_out)
+    pickle_out.close()
 if __name__ == "__main__": #this line makes sure that if an external file that imports this code tries to run this it wont be able to
     local_dir = os.path.dirname(__file__)
     config_path = os.path.join(local_dir, "ConfigFile.txt")
     run(config_path)
-    main()
+
 
 #
