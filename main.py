@@ -25,7 +25,7 @@ rocketIMG = pygame.image.load(os.path.join("images","rocketEnemy.png")).convert_
 explosionIMG = pygame.image.load(os.path.join("images","explosionIMG.png")).convert_alpha()
 heart = pygame.image.load(os.path.join("images","healthPNG.png")).convert_alpha()
 
-FPS = 60
+FPS = 1
 startingPos = [screenWidth//2 - raceCar.get_width()//2, screenHeight*0.6]
 
 Lborder,Rborder,Tborder,Bborder = 409, 942,-1,855 #borders
@@ -57,17 +57,17 @@ def checkCollisions(racer,Cars,rocket):
             racer.decHealth()
             racer.immunity = immunityTime
             #racer- rocket collision:
-    if rocket[0] != 0 and racer.immunity == 0:
+    if rocket[0] != None and racer.immunity == 0:
         if racer.isCollided(rocket[0]):
             spawnExplosion(rocket)
-            rocket[0] = 0
+            rocket[0] = None
             racer.decHealth()
             racer.immunity = immunityTime
         else:
             for car in Cars:
                 if rocket[0].isCollided(car):
                     spawnExplosion(rocket)
-                    rocket[0] = 0
+                    rocket[0] = None
                     Cars.remove(car)
                     break
     if rocket[1] != 0 and racer.immunity == 0:
@@ -78,10 +78,10 @@ def checkCollisions(racer,Cars,rocket):
 def spawnExplosion(rocket):
     if rocket[0].side == 0:
         rocket[1] = Explosion([rocket[0].position[0]+50,rocket[0].position[1]-33],explosionCollider,[0,0],explosionMaxTime,explosionIMG)
-        rocket[0] = 0
+        rocket[0] = None
     else:
         rocket[1] = Explosion([rocket[0].position[0] + rocket[0].texture.get_width()- 50 - explosionIMG.get_width(), rocket[0].position[1] - 33], explosionCollider, [0, 0],explosionMaxTime, explosionIMG)
-        rocket[0] = 0
+        rocket[0] = None
 def spawnCar(lane,color,velocity,Cars):
     #if 4 lanes are occupied, and this cars lane is the one left do not spawn unless the velocity is greater or smaller to the one of the average of all cars velocity (preventing line of cars technique)
 
@@ -156,7 +156,7 @@ def randomiserCar(Cars):#will handle return a car object, if no car spawns retur
 def handleRocket(rocket,racer):
     global rocketMinTime, rocketMaxTime, rocketTimer, rocketTargetTime
     #print(rocketTimer)
-    if rocket[0] == 0:
+    if rocket[0] == None:
         if rocketTargetTime == 0:
             rocketTargetTime = random.randint(rocketMinTime,rocketMaxTime)
         if rocketTimer == rocketTargetTime:
@@ -185,15 +185,15 @@ def handleDespawn(Cars,rocket): #will handle despawn of all objects (cars, rocke
     for car in Cars:
         if car.position[1] >= screenHeight:
             Cars.remove(car)
-    if rocket[0] != 0:
-        if rocket[0].position[1] == screenHeight:
-            rocket[0] = 0
+    if rocket[0] != None:
+        # if rocket[0].position[1] == screenHeight:
+        #     rocket[0] = None
         if rocket[0].side == 0:
             if rocket[0].position[0] >= screenWidth:
-                rocket[0] = 0
+                rocket[0] = None
         else:
             if rocket[0].position[0] <= 0 - rocket[0].texture.get_width():
-                rocket[0] = 0
+                rocket[0] = None
     if rocket[1] != 0:
         if rocket[1].deSpawnTimer == 0:
             rocket[1] = 0
@@ -243,8 +243,6 @@ def indexToMove(index,racer):
         racer.velocity[0] = -racerMaxVelocity
         racer.velocity[1] = -racerMaxVelocity
 
-
-
 #this code makes sure  car stays within bounds
     moveAfterChangeX = racer.position[0] + racer.velocity[0]
     moveAfterChangeY = racer.position[1] + racer.velocity[1]
@@ -286,7 +284,7 @@ def draw_win(background,racers,Cars,rocket):
     for car in Cars:
         WIN.blit(car.texture,tuple(car.position))
         #handleDrawnHealth(racer)
-        if rocket[0] != 0:
+        if rocket[0] != None:
             WIN.blit(rocket[0].texture, tuple(rocket[0].position))
         if rocket[1] != 0:
             WIN.blit(rocket[1].texture,tuple(rocket[1].position))
@@ -294,17 +292,18 @@ def draw_win(background,racers,Cars,rocket):
 
 
 def retInputs(Cars, racer, rocket):
+        normliser = 100000 #this value is used so that the tanh function will not just give aproximations of -1 and 1 to values (good for games like flappy bird and internet dinosaur, not for my game)
         racerLatitude = racer.position[1] + 75  # latitude line, around the middle of the car
         racerXpos = racer.position[0] + 31 #gives the x coordinate of middle of racer
         # classify cars for individual lanes
         lanes = [[], [], [], [], []]
         for car in Cars:
             lanes[car.lane].append(car)
-        output = [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,racerXpos]
+        output = [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,racerXpos/normliser]
         index = 0
         for lane in lanes:
             for car in lane:
-                dist = racerLatitude - car.position[1]  # this is distance over latitude line
+                dist = (racerLatitude - car.position[1])/normliser  # this is distance over latitude line
                 if dist > 0:
                     if output[index] == -1:
                         output[index] = dist
@@ -319,9 +318,9 @@ def retInputs(Cars, racer, rocket):
 
             index += 2
 
-        if rocket[0] != 0:
-            output[10] = (racer.position[0] + 28) - rocket[0].position[0]
-            output[11] = racerLatitude - rocket[0].position[1]
+        if rocket[0] != None:
+            output[10] = ((racer.position[0] + 28) - rocket[0].position[0])/normliser
+            output[11] = (racerLatitude - rocket[0].position[1])/normliser
         return output
 
 def main(genomes,config):
@@ -330,20 +329,23 @@ def main(genomes,config):
     racers = []
     score = 0
     for _, g in genomes: #genomes contains lists tuples of genomes of each network, underscore for ignoring the id part in the tuple .
-        net = neat.nn.feed_forward.FeedForwardNetwork.create(g,config) #creates the network with the limitations
+        net = neat.nn.FeedForwardNetwork.create(g,config)
         nets.append(net) #adds the net to list of nets
         racers.append(Player(startingPos, raceCarCollider, [0, 0], raceCar, racerHealth, 0)) #adds racer that correspinds with net
         g.fitness = 0 #players initial fitness is 0
         ge.append(g) #adds g to list of genomes
     #racer = Player(startingPos, raceCarCollider, [0, 0], raceCar, racerHealth, 0)
-
+    # for racer in racers:
+    #     print(racer)
+    #     print(racer.position)
+    #     print("\n")
     Cars =[]
-    rocket = [0,0] #if rocket is 0 then there is no rocket on field. if it is a rocket type object than this object will act accordingly on field, second cell is for explosion. has to be list so i can pass by reference
+    rocket = [None,0] #if rocket is 0 then there is no rocket on field. if it is a rocket type object than this object will act accordingly on field, second cell is for explosion. has to be list so i can pass by reference
     #clock = pygame.time.Clock()
     stop = False
 
     while (stop != True):#while the game isnt supposed to stop, it will run
-       # clock.tick(FPS)#makes sure the while loop runs 60 FPS, not more.
+        #clock.tick(FPS)#makes sure the while loop runs 60 FPS, not more.
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 stop = True
@@ -353,7 +355,7 @@ def main(genomes,config):
         #handlePlayerMovement(racer,keysPressed)
         for car in Cars:
             car.changePos()
-        if rocket[0] != 0:
+        if rocket[0] != None:
             rocket[0].changePos()
         for racer in racers:
             checkCollisions(racer,Cars,rocket)
@@ -383,17 +385,28 @@ def main(genomes,config):
 
 
         for x, racer in enumerate(racers):
-                ge[x].fitness += 1
-                outputs = nets[x].activate(tuple(retInputs(Cars,racer,rocket)))
+            # print(racer)
+            # print(racer.position)
+            ge[x].fitness += 1
+            outputs = nets[x].activate(tuple(retInputs(Cars,racer,rocket)))
+
                 # this decides what the player will do
                 #find max output, meaning what car wants to go to:
-                max = outputs[0]
-                index = 0
-                for x,output in enumerate(outputs):
-                    if output > max:
-                        index = x
-                indexToMove(index, racer)
+                #
+            # for output in outputs:
+            #     print(output)
 
+            max = outputs[0]
+            index = 0
+            for i,output in enumerate(outputs):
+                if output > max:
+                    index = i
+            #print(index)
+            indexToMove(index, racer)
+
+
+        # print("\n")
+        # print(len(racers))
         if len(racers) == 0:
             stop = True
             break
@@ -401,6 +414,7 @@ def main(genomes,config):
         for racer in racers:
             if racer.immunity != 0:
                 racer.immunity -= 1
+
         draw_win(background,racers,Cars,rocket)
         score += 1
         if score > 1000:
@@ -421,7 +435,7 @@ def run(config_path):
     stats = neat.StatisticsReporter()
     p.add_reporter(stats)
 
-    winner = p.run(main,20000)
+    winner = p.run(main,10000)
     pickle_out = open("theBot","wb")
     pickle.dump(winner,pickle_out)
     pickle_out.close()
