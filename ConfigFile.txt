@@ -1,13 +1,13 @@
 
 [NEAT]
 fitness_criterion     = max
-fitness_threshold     = 1500
-pop_size              = 10
+fitness_threshold     = 3000
+pop_size              = 350
 reset_on_extinction   = False
 
 [DefaultGenome]
 # node activation options
-activation_default      = git 
+activation_default      = tanh
 activation_mutate_rate  = 0.0
 activation_options      = tanh
 

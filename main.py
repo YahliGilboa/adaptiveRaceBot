@@ -1,10 +1,8 @@
-import os.path
+import os.path #library that is used to access files to
 from Entity import Entity
 from Player import Player
 from CollisionBox import CollisionBox
 from Car import Car
-from Rocket import Rocket
-from Explosion import Explosion
 import pygame
 import math
 import random
@@ -12,16 +10,18 @@ import neat
 import pickle
 
 screenWidth,screenHeight = 1352,855 #defining window height according to background image size
-WIN = pygame.display.set_mode((screenWidth,screenHeight)) #defining the window through pygame - so we can use it to open a window on screen in the resulotion of the background
+WIN = pygame.display.set_mode((screenWidth,screenHeight)) #defining the window through pygame - so we can
+#use it to open a window on screen in the resulotion of the background
 
-drawColCar = 0
-drawColRaceCar = 0
+#this list contains lists of: frames until spawn,lane,color,velocity
+#this list contains a constant wave of cars to check validity of input layer.
+listSpawnCars = [[100,0,0,5],[20,1,0,5],[20,2,0,5],[40,4,0,3],
+                 [120,0,0,6],[40,2,0,8],[20,1,0,3],[20,3,0,8],[40,4,0,4]]
 
 raceCar = pygame.image.load(os.path.join('images','raceCarPNG.png')).convert_alpha()
 background = pygame.image.load(os.path.join('images','backgroundPNG.png')).convert_alpha()
 blueCar = pygame.image.load(os.path.join('images','blueCar.png')).convert_alpha()
 greenCar = pygame.image.load(os.path.join('images','greenCar.png')).convert_alpha()
-rocketIMG = pygame.image.load(os.path.join("images","rocketEnemy.png")).convert_alpha()
 explosionIMG = pygame.image.load(os.path.join("images","explosionIMG.png")).convert_alpha()
 heart = pygame.image.load(os.path.join("images","healthPNG.png")).convert_alpha()
 
@@ -32,28 +32,29 @@ Lborder,Rborder,Tborder,Bborder = 409, 942,-1,855 #borders
 
 racerHealth = 1
 
-immunityTime = 120 #120 frames of immunty, while game runs at 60 frames per second, meaning 2 seconds of immunity
-rocketMinTime = 120
-rocketMaxTime = 360
-rocketTimer = 0
-rocketTargetTime = 0
+#120 frames of immunty, while game runs at 60 frames per second, meaning 2 seconds of immunity
+immunityTime = 120
 explosionMaxTime = 45
 
-carCollider = [CollisionBox(13, 0, 48, 7), CollisionBox(4, 7, 65, 108), CollisionBox(9, 115, 55, 14)] #the car collision box
-raceCarCollider  = [CollisionBox(5, 70, 45, 85), CollisionBox(9, 6, 37, 64)] #list of "collision boxes" - offsetX from start pos, offsetY from start pos, width and height.
-rocketCollider = [CollisionBox(40, 6, 22, 52), CollisionBox(62, 14, 44, 35), CollisionBox(106, 18, 11, 28)]
-explosionCollider = [CollisionBox(17,24,17,76),CollisionBox(34,17,74,87), CollisionBox(108,26,8,73), CollisionBox(116,34,7,63), CollisionBox(123,46,10,39) ]
+# the car collision box
+carCollider = [CollisionBox(13, 0, 48, 7), CollisionBox(4, 7, 65, 108), CollisionBox(9, 115, 55, 14)]
+
+#list of "collision boxes" - offsetX from start pos, offsetY from start pos, width and height.
+raceCarCollider  = [CollisionBox(5, 70, 45, 85),
+CollisionBox(9, 6, 37, 64)]
+
+explosionCollider = [CollisionBox(17,24,17,76),CollisionBox(34,17,74,87),
+CollisionBox(108,26,8,73), CollisionBox(116,34,7,63), CollisionBox(123,46,10,39) ]
 
 racerMaxVelocity = 6
 carLimit = 6
 
-
+#checks for collisions between racer and cars.
+#goes through each car, and uses internal function of class entity "isCollided" in order
+#to figure out if the 2 entities have collided. if so, decrase racer's health
 def checkCollisions(racer,Cars):
-    global drawColCar,drawColRaceCar
     for car in Cars:
         if racer.isCollided(car) and racer.immunity == 0:
-            drawColCar = car
-            drawColRaceCar = 1
             racer.decHealth()
             racer.immunity = immunityTime
             #racer- rocket collision:
@@ -61,7 +62,8 @@ def checkCollisions(racer,Cars):
 
 
 def spawnCar(lane,color,velocity,Cars):
-    #if 4 lanes are occupied, and this cars lane is the one left do not spawn unless the velocity is greater or smaller to the one of the average of all cars velocity (preventing line of cars technique)
+    #if 4 lanes are occupied, and this cars lane is the one left do not spawn unless the
+    # velocity is greater or smaller to the one of the average of all cars velocity (preventing line of cars technique)
 
     #===================================================================================================
     occupiedLanes = [0,0,0,0,0]
@@ -78,7 +80,7 @@ def spawnCar(lane,color,velocity,Cars):
 
         #checks how many lanes are occupied
         for element in occupiedLanes:
-            if occupiedLanes[element] > 0:
+            if element > 0:
                 amountOccupied += 1
 
         if amountOccupied  >= 4:
@@ -86,10 +88,9 @@ def spawnCar(lane,color,velocity,Cars):
                 canSpawn = False
     #==========================================================
 
-
-
-    #if there is car in current lane while trying to spawn this car, and this car's velocity is greater dont spawn it. if it is smaller equal to the smallest car velocity in that lane and distance from that car to top is greater than 150, spawn the car
-
+    #if there is car in current lane while trying to spawn this car, and this car's velocity is greater dont spawn it.
+    # if it is smaller equal to the smallest car velocity in that lane and distance from that car to top is
+    # greater than 150, spawn the car
     #==============================================================
     minCarVel = 0  #will contain every car in same lane as this car.
     closestToTop = 0
@@ -110,44 +111,43 @@ def spawnCar(lane,color,velocity,Cars):
             canSpawn = False
     #======================================================================
 
+    #if there are less cars than the car limit and the car can spawn, spawn it
     if len(Cars) < carLimit and canSpawn:
         grassLength = 409
         roadOffsetleft = 14
         laneDiff = 108
-        spawnPos = [grassLength + roadOffsetleft + laneDiff * lane, -blueCar.get_height()]  # at x axis added the crass length size, added the distance needed from left of the road and added multiplication of road thickness, according to lane number
+        spawnPos = [grassLength + roadOffsetleft + laneDiff * lane, -blueCar.get_height()]  # at x axis added the grass
+        # length size, added the distance needed from left of the road and added
+        # multiplication of road thickness, according to lane number
         texture = blueCar
         if color == 1:
             texture = greenCar
         Cars.append(Car(spawnPos, carCollider, [0, 1 * velocity], lane, texture))
 
+#spawns random values for car
 def randomiserCar(Cars):#will handle return a car object, if no car spawns return -1
 
-    #implent next: add if lane is occupied and car is not within set length of the top of the lane, spawn car in next lane. but if over set length and lane is occupied then spawn car that has same or less speed (or more by 1)
-    #also change car generate system, cap will be more than 4 but cars cannot live or spawn within certain distabce of eachother (can be implemented with previous funcs)
-
-    if random.randint(1,10000) > 9500: #needs to be changes to timer (pygame.time.set_timer())
+    if random.randint(1,20) > 19: #spawns random car in the probability of 1/20
         lane = random.randint(0, 4)
         color = random.randint(0, 1)
         velocity =  (random.randint(3, 8))
         spawnCar(lane,color,velocity,Cars)
 
 
+#handels the despawn of cars
 def handleDespawn(Cars): #will handle despawn of all objects (cars, rockets, etc)
     for car in Cars:
         if car.position[1] >= screenHeight:
             Cars.remove(car)
 
-
-def draw_collider(entity):
-    for collisionBox in entity.collider:
-        pygame.draw.rect(WIN, (255, 255, 255), pygame.Rect(entity.position[0]+collisionBox.offsetX,entity.position[1]+collisionBox.offsetY,collisionBox.width,collisionBox.height))
-
+#draws player current health
 def handleDrawnHealth(racer):
     startOffset = [50,50]
     for i in range(racer.health):
         WIN.blit(heart,tuple(startOffset))
         startOffset[0] += 60
 
+#converts between output of neural network to direction of movement
 def indexToMove(index,racer):
     if index == 0:
         racer.velocity[0] = 0
@@ -203,31 +203,57 @@ def indexToMove(index,racer):
 
     racer.changePos()
 
-
+#draws all entities on the screen
 def draw_win(background,racers,Cars):
-    global drawColCar,drawColRaceCar
-    #print(drawColCar,drawColRaceCar)
     WIN.blit(background,(0,0))
-    #if drawColCar != 0:
-        #draw_collider(drawColCar)
-       # drawColCar = 0
-    #if drawColRaceCar != 0:
-        #draw_collider(racer)
-       # drawColRaceCar = 0
-    # draw_collider(racer)
-    # for car in Cars:
-    #     draw_collider(car)
-    for racer in racers:
-        WIN.blit(raceCar, tuple(racer.position))
+    WIN.blit(raceCar, tuple(racers[0].position))
     for car in Cars:
         WIN.blit(car.texture,tuple(car.position))
-        #handleDrawnHealth(racer)
+        handleDrawnHealth(racers[0])
 
     pygame.display.update() #actually updates all changes made to screen
 
+#converts key press to player velocity
+def handlePlayerMovement(racer,keysPressed):
+    if keysPressed[pygame.K_a]:
+            racer.velocity[0] = -racerMaxVelocity
+    if keysPressed[pygame.K_d]:
+            racer.velocity[0] = racerMaxVelocity
+    if not keysPressed[pygame.K_d] and not keysPressed[pygame.K_a]: #can be changes to not xor
+        racer.velocity[0] = 0
+    if keysPressed[pygame.K_w]:
+        racer.velocity[1] = -racerMaxVelocity
+    if keysPressed[pygame.K_s]:
+        racer.velocity[1] = racerMaxVelocity
+    if not keysPressed[pygame.K_w] and not keysPressed[pygame.K_s]:
+        racer.velocity[1] = 0
 
+#this code limits the racer to move over from the border
+    moveAfterChangeX = racer.position[0] + racer.velocity[0]
+    moveAfterChangeY = racer.position[1] + racer.velocity[1]
+
+    if moveAfterChangeX + racer.texture.get_width() > Rborder:
+        racer.velocity[0] = 0
+        racer.position[0] = Rborder - racer.texture.get_width()
+
+    if moveAfterChangeX <= Lborder:
+        racer.velocity[0] = 0
+        racer.position[0] = Lborder
+
+    if moveAfterChangeY <= Tborder:
+        racer.velocity[1] = 0
+        racer.position[1] = Tborder
+
+    if moveAfterChangeY + racer.texture.get_height() >= Bborder:
+        racer.velocity[1] = 0
+        racer.position[1] = Bborder - racer.texture.get_height()
+
+    racer.changePos()
+
+#gets inputs from environment and converts them to a list the network could understand
 def retInputs(Cars, racer):
-        normliser = 100000 #this value is used so that the tanh function will not just give aproximations of -1 and 1 to values (good for games like flappy bird and internet dinosaur, not for my game)
+        normliser = 10000 #this value is used so that the tanh function will not just give aproximations of
+        # -1 and 1 to values (good for games like flappy bird and internet dinosaur, not for my game)
         racerLatitude = racer.position[1] + 75  # latitude line, around the middle of the car
         racerXpos = racer.position[0] + 31 #gives the x coordinate of middle of racer
         # classify cars for individual lanes
@@ -252,35 +278,38 @@ def retInputs(Cars, racer):
                         output[index + 1] = min(output[index], abs(dist))
 
             index += 2
-
+        return output
 
 def main(genomes,config):
     nets = []
     ge = []
     racers = []
     score = 0
-    for _, g in genomes: #genomes contains lists tuples of genomes of each network, underscore for ignoring the id part in the tuple .
+    gameTick = 0
+    Cars = []
+    spawncarIndex = 0 #variable used for the known set of cars, in order to check validation of a learning curve.
+
+    for _, g in genomes: #genomes contains lists tuples of genomes of each network,
+        # underscore for ignoring the id part in the tuple .
         net = neat.nn.FeedForwardNetwork.create(g,config)
         nets.append(net) #adds the net to list of nets
-        racers.append(Player(startingPos, raceCarCollider, [0, 0], raceCar, racerHealth, 0)) #adds racer that correspinds with net
+        racers.append(Player(startingPos, raceCarCollider, [0, 0], raceCar, racerHealth, 0)) #adds racer
+        # that correspinds with net
         g.fitness = 0 #players initial fitness is 0
         ge.append(g) #adds g to list of genomes
-    #racer = Player(startingPos, raceCarCollider, [0, 0], raceCar, racerHealth, 0)
-    # for racer in racers:
-    #     print(racer)
-    #     print(racer.position)
-    #     print("\n")
-    Cars =[]
-    #clock = pygame.time.Clock()
+
+    #clock = pygame.time.Clock() #OPTIONAL: this is if we want the game to run in frames, for ex 60 frames per second
     stop = False
 
     while (stop != True):#while the game isnt supposed to stop, it will run
-        #clock.tick(FPS)#makes sure the while loop runs 60 FPS, not more.
+        #clock.tick(FPS) #OPTIONAL: makes sure the while loop runs 60 FPS, not more.
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 stop = True
                 pygame.quit()
                 quit()
+
+     #lines below are when player wants to play. screen to switch will be implemented in future:
       #keysPressed = pygame.key.get_pressed()
         #handlePlayerMovement(racer,keysPressed)
         for car in Cars:
@@ -293,7 +322,6 @@ def main(genomes,config):
 
         handleDespawn(Cars)
 
-
         #kills all losing racers
         for x, racer in enumerate(racers):  # meaning, for index x corresponding with object "bird" in iterable "birds"
             if racer.health == 0:
@@ -302,38 +330,23 @@ def main(genomes,config):
                 nets.pop(x)
                 ge.pop(x)
 
-        # for x, racer in enumerate(racers):
-        #     if racer.position[0] <= Lborder or racer.position[0] + racer.texture.get_width() >= Rborder:
-        #         ge[x].fitness -= 1
-        #     if racer.position[1] <= Tborder:
-        #         ge[x].fitness -= 10
-        #     if racer.position[1] + racer.texture.get_height() >= Bborder:
-        #         ge[x].fitness += 0.5
 
 
         for x, racer in enumerate(racers):
-            # print(racer)
-            # print(racer.position)
             ge[x].fitness += 1
             outputs = nets[x].activate(tuple(retInputs(Cars,racer)))
 
-                # this decides what the player will do
-                #find max output, meaning what car wants to go to:
-                #
-            # for output in outputs:
-            #     print(output)
+            # this decides what the player will do
+            #find max output, meaning what car wants to go to:
 
             max = outputs[0]
             index = 0
             for i,output in enumerate(outputs):
                 if output > max:
                     index = i
-            #print(index)
             indexToMove(index, racer)
 
 
-        # print("\n")
-        # print(len(racers))
         if len(racers) == 0:
             stop = True
             break
@@ -341,20 +354,33 @@ def main(genomes,config):
         for racer in racers:
             if racer.immunity != 0:
                 racer.immunity -= 1
-
-        draw_win(background,racers,Cars)
         score += 1
-        if score > 1000:
+        gameTick += 1
+
+        #Optional: this code is for testing if the model can even learn. sets known course and tries to run the
+        # networks untill it goes over a certain threshold
+        # if listSpawnCars[spawncarIndex][0] == gameTick:
+        #     gameTick = 0
+        #     spawnCar(listSpawnCars[spawncarIndex][1],listSpawnCars[spawncarIndex][2],
+        #     listSpawnCars[spawncarIndex][3],Cars)
+        #     spawncarIndex += 1
+        # if spawncarIndex == 8:
+        #     spawncarIndex = 0
+
+        #this segment is used for pickeling, when network is over a certain score, stop the game and save the networks
+        # data. then we can use the networks bit- data to use it
+        if score > 1800:
             break
 
-
-
+        draw_win(background,racers,Cars)
 
 
 
 
 def run(config_path):
-    config = neat.config.Config(neat.DefaultGenome,neat.DefaultReproduction,neat.DefaultSpeciesSet,neat.DefaultStagnation,config_path)
+    config = neat.config.Config(neat.DefaultGenome,neat.DefaultReproduction,
+                                neat.DefaultSpeciesSet,
+                                neat.DefaultStagnation,config_path)
 
     p = neat.Population(config)
 
@@ -366,10 +392,12 @@ def run(config_path):
     pickle_out = open("theBot","wb")
     pickle.dump(winner,pickle_out)
     pickle_out.close()
-if __name__ == "__main__": #this line makes sure that if an external file that imports this code tries to run this it wont be able to
+if __name__ == "__main__": #this line makes sure that if an external file that imports this
+    # code tries to run this it wont be able to
     local_dir = os.path.dirname(__file__)
     config_path = os.path.join(local_dir, "ConfigFile.txt")
     run(config_path)
 
 
-#
+
+
