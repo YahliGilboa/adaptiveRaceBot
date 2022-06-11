@@ -25,7 +25,7 @@ greenCar = pygame.image.load(os.path.join('images','greenCar.png')).convert_alph
 explosionIMG = pygame.image.load(os.path.join("images","explosionIMG.png")).convert_alpha()
 heart = pygame.image.load(os.path.join("images","healthPNG.png")).convert_alpha()
 
-FPS = 1
+FPS = 60
 startingPos = [screenWidth//2 - raceCar.get_width()//2, screenHeight*0.6]
 
 Lborder,Rborder,Tborder,Bborder = 409, 942,-1,855 #borders
@@ -203,13 +203,18 @@ def indexToMove(index,racer):
 
     racer.changePos()
 
-#draws all entities on the screen
+#draws all entities on the screen, if racer is not list than it is single racer.
 def draw_win(background,racers,Cars):
     WIN.blit(background,(0,0))
-    WIN.blit(raceCar, tuple(racers[0].position))
+    if type(racers) is list:
+        WIN.blit(racers[0].texture, tuple(racers[0].position))
+        handleDrawnHealth(racers[0])
+    else:
+        WIN.blit(racers.texture, tuple(racers.position))
+        handleDrawnHealth(racers)
     for car in Cars:
         WIN.blit(car.texture,tuple(car.position))
-        handleDrawnHealth(racers[0])
+
 
     pygame.display.update() #actually updates all changes made to screen
 
@@ -369,11 +374,58 @@ def main(genomes,config):
 
         #this segment is used for pickeling, when network is over a certain score, stop the game and save the networks
         # data. then we can use the networks bit- data to use it
-        if score > 1800:
-            break
 
         draw_win(background,racers,Cars)
 
+def runGame():
+    racer = Player(startingPos, raceCarCollider, [0, 0], raceCar, racerHealth, 0)
+    score = 0
+    gameTick = 0
+    Cars = []
+    clock = pygame.time.Clock() #OPTIONAL: this is if we want the game to run in frames, for ex 60 frames per second
+    stop = False
+
+    while (stop != True):  # while the game isnt supposed to stop, it will run
+        clock.tick(FPS) #OPTIONAL: makes sure the while loop runs 60 FPS, not more.
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                stop = True
+                pygame.quit()
+                quit()
+
+        keysPressed = pygame.key.get_pressed()
+        if keysPressed[pygame.K_ESCAPE]:
+            break
+
+        handlePlayerMovement(racer,keysPressed)
+        for car in Cars:
+            car.changePos()
+
+        checkCollisions(racer, Cars)
+
+        randomiserCar(Cars)
+
+        handleDespawn(Cars)
+
+        if racer.immunity != 0:
+            racer.immunity -= 1
+
+        # Optional: this code is for testing if the model can even learn. sets known course and tries to run the
+        # networks untill it goes over a certain threshold
+        # if listSpawnCars[spawncarIndex][0] == gameTick:
+        #     gameTick = 0
+        #     spawnCar(listSpawnCars[spawncarIndex][1],listSpawnCars[spawncarIndex][2],
+        #     listSpawnCars[spawncarIndex][3],Cars)
+        #     spawncarIndex += 1
+        # if spawncarIndex == 8:
+        #     spawncarIndex = 0
+
+        # this segment is used for pickeling, when network is over a certain score, stop the game and save the networks
+        # data. then we can use the networks bit- data to use it
+        if score > 1800:
+            break
+
+        draw_win(background, racer, Cars)
 
 
 
@@ -392,11 +444,28 @@ def run(config_path):
     pickle_out = open("theBot","wb")
     pickle.dump(winner,pickle_out)
     pickle_out.close()
+
+def startScreen():
+    stop = False
+    while (stop != True):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                stop = True
+                pygame.quit()
+                quit()
+        WIN.blit(background, (0, 0))
+        keysPressed = pygame.key.get_pressed()
+        if keysPressed[pygame.K_0]:
+            local_dir = os.path.dirname(__file__)
+            config_path = os.path.join(local_dir, "ConfigFile.txt")
+            run(config_path)
+        if keysPressed[pygame.K_1]:
+            runGame()
+
 if __name__ == "__main__": #this line makes sure that if an external file that imports this
     # code tries to run this it wont be able to
-    local_dir = os.path.dirname(__file__)
-    config_path = os.path.join(local_dir, "ConfigFile.txt")
-    run(config_path)
+    startScreen()
+
 
 
 
