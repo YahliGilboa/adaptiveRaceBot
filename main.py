@@ -49,6 +49,8 @@ CollisionBox(108,26,8,73), CollisionBox(116,34,7,63), CollisionBox(123,46,10,39)
 racerMaxVelocity = 6
 carLimit = 6
 
+breakFromMain = False
+
 #checks for collisions between racer and cars.
 #goes through each car, and uses internal function of class entity "isCollided" in order
 #to figure out if the 2 entities have collided. if so, decrase racer's health
@@ -286,6 +288,7 @@ def retInputs(Cars, racer):
         return output
 
 def main(genomes,config):
+    global breakFromMain
     nets = []
     ge = []
     racers = []
@@ -314,6 +317,7 @@ def main(genomes,config):
                 pygame.quit()
                 quit()
 
+
      #lines below are when player wants to play. screen to switch will be implemented in future:
       #keysPressed = pygame.key.get_pressed()
         #handlePlayerMovement(racer,keysPressed)
@@ -328,15 +332,15 @@ def main(genomes,config):
         handleDespawn(Cars)
 
         #kills all losing racers
-        for x, racer in enumerate(racers):  # meaning, for index x corresponding with object "bird" in iterable "birds"
+        for x, racer in enumerate(racers):  #meaning, for index x corresponding with object "racer" in iterable "racers"
             if racer.health == 0:
-                ge[x].fitness -= 100
+                ge[x].fitness -= 240
                 racers.pop(x)
                 nets.pop(x)
                 ge.pop(x)
 
 
-
+        #makes a move
         for x, racer in enumerate(racers):
             ge[x].fitness += 1
             outputs = nets[x].activate(tuple(retInputs(Cars,racer)))
@@ -430,6 +434,7 @@ def runGame():
 
 
 def run(config_path):
+    global breakFromMain
     config = neat.config.Config(neat.DefaultGenome,neat.DefaultReproduction,
                                 neat.DefaultSpeciesSet,
                                 neat.DefaultStagnation,config_path)
@@ -441,11 +446,13 @@ def run(config_path):
     p.add_reporter(stats)
 
     winner = p.run(main,1000)
+    breakFromMain = False #resets so it can run again after the break from main
     pickle_out = open("theBot","wb")
     pickle.dump(winner,pickle_out)
     pickle_out.close()
 
 def startScreen():
+    global racerHealth
     stop = False
     while (stop != True):
         for event in pygame.event.get():
@@ -454,12 +461,16 @@ def startScreen():
                 pygame.quit()
                 quit()
         WIN.blit(background, (0, 0))
+
         keysPressed = pygame.key.get_pressed()
+        pygame.display.update()  # actually updates all changes made to screen
         if keysPressed[pygame.K_0]:
+            racerHealth = 1
             local_dir = os.path.dirname(__file__)
             config_path = os.path.join(local_dir, "ConfigFile.txt")
             run(config_path)
         if keysPressed[pygame.K_1]:
+            racerHealth = 3
             runGame()
 
 if __name__ == "__main__": #this line makes sure that if an external file that imports this
