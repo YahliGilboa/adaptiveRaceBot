@@ -227,13 +227,13 @@ def handlePlayerMovement(racer,keysPressed):
             racer.velocity[0] = -racerMaxVelocity
     if keysPressed[pygame.K_d]:
             racer.velocity[0] = racerMaxVelocity
-    if not keysPressed[pygame.K_d] and not keysPressed[pygame.K_a]: #can be changes to not xor
+    if not keysPressed[pygame.K_d] and not keysPressed[pygame.K_a]: #when nothing pressed: dont move.
         racer.velocity[0] = 0
     if keysPressed[pygame.K_w]:
         racer.velocity[1] = -racerMaxVelocity
     if keysPressed[pygame.K_s]:
         racer.velocity[1] = racerMaxVelocity
-    if not keysPressed[pygame.K_w] and not keysPressed[pygame.K_s]:
+    if not keysPressed[pygame.K_w] and not keysPressed[pygame.K_s]:#when nothing pressed: dont move.
         racer.velocity[1] = 0
 
 #this code limits the racer to move over from the border
@@ -322,6 +322,7 @@ def main(genomes,config):
      #lines below are when player wants to play. screen to switch will be implemented in future:
       #keysPressed = pygame.key.get_pressed()
         #handlePlayerMovement(racer,keysPressed)
+
         for car in Cars:
             car.changePos()
 
@@ -375,7 +376,13 @@ def main(genomes,config):
         if spawncarIndex == 8:
             spawncarIndex = 0
 
-
+        #this iis for stopping game
+        keysPressed = pygame.key.get_pressed()
+        if keysPressed[pygame.K_ESCAPE]:
+            ge[0].fitness = 2000 # so we could stop p.run from continuing to run
+            score = 2000
+        if score > 1800:
+            break
         draw_win(background,racers,Cars)
 
 def runGame():
@@ -411,20 +418,6 @@ def runGame():
         if racer.immunity != 0:
             racer.immunity -= 1
 
-        # Optional: this code is for testing if the model can even learn. sets known course and tries to run the
-        # networks untill it goes over a certain threshold
-        # if listSpawnCars[spawncarIndex][0] == gameTick:
-        #     gameTick = 0
-        #     spawnCar(listSpawnCars[spawncarIndex][1],listSpawnCars[spawncarIndex][2],
-        #     listSpawnCars[spawncarIndex][3],Cars)
-        #     spawncarIndex += 1
-        # if spawncarIndex == 8:
-        #     spawncarIndex = 0
-
-        # this segment is used for pickeling, when network is over a certain score, stop the game and save the networks
-        # data. then we can use the networks bit- data to use it
-        if score > 1800:
-            break
 
         draw_win(background, racer, Cars)
 
