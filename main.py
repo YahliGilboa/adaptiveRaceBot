@@ -18,6 +18,7 @@ WIN = pygame.display.set_mode((screenWidth,screenHeight)) #defining the window t
 listSpawnCars = [[100,0,0,5],[20,1,0,5],[20,2,0,5],[40,4,0,3],
                  [120,0,0,6],[40,2,0,8],[20,1,0,3],[20,3,0,8],[40,4,0,4]]
 
+menuScreen = pygame.image.load(os.path.join('images', 'menuScreen.png')).convert_alpha()
 raceCar = pygame.image.load(os.path.join('images','raceCarPNG.png')).convert_alpha()
 background = pygame.image.load(os.path.join('images','backgroundPNG.png')).convert_alpha()
 blueCar = pygame.image.load(os.path.join('images','blueCar.png')).convert_alpha()
@@ -47,7 +48,7 @@ explosionCollider = [CollisionBox(17,24,17,76),CollisionBox(34,17,74,87),
 CollisionBox(108,26,8,73), CollisionBox(116,34,7,63), CollisionBox(123,46,10,39) ]
 
 racerMaxVelocity = 6
-carLimit = 6
+carLimit = 5
 
 breakFromMain = False
 
@@ -327,8 +328,6 @@ def main(genomes,config):
         for racer in racers:
             checkCollisions(racer,Cars)
 
-        randomiserCar(Cars)
-
         handleDespawn(Cars)
 
         #kills all losing racers
@@ -367,17 +366,15 @@ def main(genomes,config):
         gameTick += 1
 
         #Optional: this code is for testing if the model can even learn. sets known course and tries to run the
-        # networks untill it goes over a certain threshold
-        # if listSpawnCars[spawncarIndex][0] == gameTick:
-        #     gameTick = 0
-        #     spawnCar(listSpawnCars[spawncarIndex][1],listSpawnCars[spawncarIndex][2],
-        #     listSpawnCars[spawncarIndex][3],Cars)
-        #     spawncarIndex += 1
-        # if spawncarIndex == 8:
-        #     spawncarIndex = 0
+        #networks untill it goes over a certain threshold
+        if listSpawnCars[spawncarIndex][0] == gameTick:
+            gameTick = 0
+            spawnCar(listSpawnCars[spawncarIndex][1],listSpawnCars[spawncarIndex][2],
+            listSpawnCars[spawncarIndex][3],Cars)
+            spawncarIndex += 1
+        if spawncarIndex == 8:
+            spawncarIndex = 0
 
-        #this segment is used for pickeling, when network is over a certain score, stop the game and save the networks
-        # data. then we can use the networks bit- data to use it
 
         draw_win(background,racers,Cars)
 
@@ -460,8 +457,8 @@ def startScreen():
                 stop = True
                 pygame.quit()
                 quit()
-        WIN.blit(background, (0, 0))
 
+        WIN.blit(menuScreen, (0, 0))
         keysPressed = pygame.key.get_pressed()
         pygame.display.update()  # actually updates all changes made to screen
         if keysPressed[pygame.K_0]:
