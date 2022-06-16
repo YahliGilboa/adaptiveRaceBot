@@ -7,7 +7,6 @@ import pygame
 import math
 import random
 import neat
-import pickle
 
 screenWidth,screenHeight = 1352,855 #defining window height according to background image size
 WIN = pygame.display.set_mode((screenWidth,screenHeight)) #defining the window through pygame - so we can
@@ -437,9 +436,6 @@ def run(config_path):
 
     winner = p.run(main,1000)
     breakFromMain = False #resets so it can run again after the break from main
-    pickle_out = open("theBot","wb")
-    pickle.dump(winner,pickle_out)
-    pickle_out.close()
 
 def startScreen():
     global racerHealth
