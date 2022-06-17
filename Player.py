@@ -1,8 +1,4 @@
-import pygame
-from CollisionBox import CollisionBox
 from Entity import Entity
-
-import math
 
 class Player(Entity):
     def __init__(self, position: list, collider:list, velocity: list, texture,health,immunity):

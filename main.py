@@ -13,10 +13,11 @@ WIN = pygame.display.set_mode((screenWidth,screenHeight)) #defining the window t
 #use it to open a window on screen in the resulotion of the background
 
 #this list contains lists of: frames until spawn,lane,color,velocity
-#this list contains a constant wave of cars to check validity of input layer.
-listSpawnCars = [[100,0,0,5],[20,1,0,5],[20,2,0,5],[40,4,0,3],
-                 [120,0,0,6],[40,2,0,8],[20,1,0,3],[20,3,0,8],[40,4,0,4]]
+#this list contains a constant wave for the raceCar to learn from in the bot portion of the game
+listSpawnCars = [[100,0,0,5],[20,1,1,5],[20,2,0,5],[40,4,1,3],
+                 [120,0,1,6],[40,2,0,8],[20,1,1,3],[20,3,0,8],[40,4,1,4]]
 
+#these variables hold the image files to use to draw the objects on screen
 menuScreen = pygame.image.load(os.path.join('images', 'menuScreen.png')).convert_alpha()
 raceCar = pygame.image.load(os.path.join('images','raceCarPNG.png')).convert_alpha()
 background = pygame.image.load(os.path.join('images','backgroundPNG.png')).convert_alpha()
@@ -25,31 +26,24 @@ greenCar = pygame.image.load(os.path.join('images','greenCar.png')).convert_alph
 explosionIMG = pygame.image.load(os.path.join("images","explosionIMG.png")).convert_alpha()
 heart = pygame.image.load(os.path.join("images","healthPNG.png")).convert_alpha()
 
-FPS = 60
-startingPos = [screenWidth//2 - raceCar.get_width()//2, screenHeight*0.6]
+#environment variables
+FPS = 60 #frames per second for player
+startingPos = [screenWidth//2 - raceCar.get_width()//2, screenHeight*0.6] #the starting position of racers
+Lborder,Rborder,Tborder,Bborder = 409, 942,-1,855 #borders that racers cant go past
 
-Lborder,Rborder,Tborder,Bborder = 409, 942,-1,855 #borders
-
+#racer health varibles
 racerHealth = 1
-
-#120 frames of immunty, while game runs at 60 frames per second, meaning 2 seconds of immunity
-immunityTime = 120
-explosionMaxTime = 45
-
-# the car collision box
-carCollider = [CollisionBox(13, 0, 48, 7), CollisionBox(4, 7, 65, 108), CollisionBox(9, 115, 55, 14)]
+immunityTime = 120 #120 frames of immunty, while game runs at 60 frames per second, meaning 2 seconds of immunity
 
 #list of "collision boxes" - offsetX from start pos, offsetY from start pos, width and height.
 raceCarCollider  = [CollisionBox(5, 70, 45, 85),
 CollisionBox(9, 6, 37, 64)]
+carCollider = [CollisionBox(13, 0, 48, 7), CollisionBox(4, 7, 65, 108), CollisionBox(9, 115, 55, 14)]
 
-explosionCollider = [CollisionBox(17,24,17,76),CollisionBox(34,17,74,87),
-CollisionBox(108,26,8,73), CollisionBox(116,34,7,63), CollisionBox(123,46,10,39) ]
-
+#enemy car variables
 racerMaxVelocity = 6
 carLimit = 5
 
-breakFromMain = False
 
 #checks for collisions between racer and cars.
 #goes through each car, and uses internal function of class entity "isCollided" in order
@@ -59,10 +53,9 @@ def checkCollisions(racer,Cars):
         if racer.isCollided(car) and racer.immunity == 0:
             racer.decHealth()
             racer.immunity = immunityTime
-            #racer- rocket collision:
 
 
-
+#spawns cars according to limitations documented in the function
 def spawnCar(lane,color,velocity,Cars):
     #if 4 lanes are occupied, and this cars lane is the one left do not spawn unless the
     # velocity is greater or smaller to the one of the average of all cars velocity (preventing line of cars technique)
@@ -126,9 +119,9 @@ def spawnCar(lane,color,velocity,Cars):
             texture = greenCar
         Cars.append(Car(spawnPos, carCollider, [0, 1 * velocity], lane, texture))
 
-#spawns random values for car
-def randomiserCar(Cars):#will handle return a car object, if no car spawns return -1
 
+#spawns random values for car
+def randomiserCar(Cars):
     if random.randint(1,20) > 19: #spawns random car in the probability of 1/20
         lane = random.randint(0, 4)
         color = random.randint(0, 1)
@@ -137,17 +130,20 @@ def randomiserCar(Cars):#will handle return a car object, if no car spawns retur
 
 
 #handels the despawn of cars
-def handleDespawn(Cars): #will handle despawn of all objects (cars, rockets, etc)
+def handleDespawn(Cars):
     for car in Cars:
         if car.position[1] >= screenHeight:
             Cars.remove(car)
 
+
 #draws player current health
 def handleDrawnHealth(racer):
     startOffset = [50,50]
+    #for each health racer has, draw it in offsets of 60 pixels
     for i in range(racer.health):
         WIN.blit(heart,tuple(startOffset))
         startOffset[0] += 60
+
 
 #converts between output of neural network to direction of movement
 def indexToMove(index,racer):
@@ -207,18 +203,24 @@ def indexToMove(index,racer):
 
 #draws all entities on the screen, if racer is not list than it is single racer.
 def draw_win(background,racers,Cars):
+    #draws background
     WIN.blit(background,(0,0))
+
+    #if racer is list then draw the first racer in the list (game mode 0) if it isnt
+    # then move it like one racer (game mode 1)
     if type(racers) is list:
         WIN.blit(racers[0].texture, tuple(racers[0].position))
         handleDrawnHealth(racers[0])
     else:
         WIN.blit(racers.texture, tuple(racers.position))
         handleDrawnHealth(racers)
+
+    #draws cars
     for car in Cars:
         WIN.blit(car.texture,tuple(car.position))
 
-
-    pygame.display.update() #actually updates all changes made to screen
+    #updates display on screen
+    pygame.display.update()
 
 #converts key press to player velocity
 def handlePlayerMovement(racer,keysPressed):
@@ -258,12 +260,15 @@ def handlePlayerMovement(racer,keysPressed):
     racer.changePos()
 
 #gets inputs from environment and converts them to a list the network could understand
+#returns the closest car in every lane, in front and back of the racer, and the x distance from left of lanes.
 def retInputs(Cars, racer):
         normliser = 10000 #this value is used so that the tanh function will not just give aproximations of
         # -1 and 1 to values (good for games like flappy bird and internet dinosaur, not for my game)
         racerLatitude = racer.position[1] + 75  # latitude line, around the middle of the car
         racerXpos = racer.position[0] + 31 #gives the x coordinate of middle of racer
+
         # classify cars for individual lanes
+        #================================================================================================
         lanes = [[], [], [], [], []]
         for car in Cars:
             lanes[car.lane].append(car)
@@ -284,11 +289,11 @@ def retInputs(Cars, racer):
                     else:
                         output[index + 1] = min(output[index], abs(dist))
 
-            index += 2
+            index += 2 #goes on to finalize the 2 next outputs (front and back)
+            # ==========================================================================================
         return output
 
 def main(genomes,config):
-    global breakFromMain
     nets = []
     ge = []
     racers = []
@@ -297,40 +302,35 @@ def main(genomes,config):
     Cars = []
     spawncarIndex = 0 #variable used for the known set of cars, in order to check validation of a learning curve.
 
-    for _, g in genomes: #genomes contains lists tuples of genomes of each network,
-        # underscore for ignoring the id part in the tuple .
+    for _, g in genomes: #genomes contains lists tuples of ID's and genomes of each network,
+        # underscore for ignoring the id part in the tuple.
         net = neat.nn.FeedForwardNetwork.create(g,config)
         nets.append(net) #adds the net to list of nets
         racers.append(Player(startingPos, raceCarCollider, [0, 0], raceCar, racerHealth, 0)) #adds racer
-        # that correspinds with net
+        # that corresponds with net
         g.fitness = 0 #players initial fitness is 0
         ge.append(g) #adds g to list of genomes
 
-    #clock = pygame.time.Clock() #OPTIONAL: this is if we want the game to run in frames, for ex 60 frames per second
-    stop = False
-
+    stop = False #stop condition for the while loop of game
     while (stop != True):#while the game isnt supposed to stop, it will run
-        #clock.tick(FPS) #OPTIONAL: makes sure the while loop runs 60 FPS, not more.
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 stop = True
                 pygame.quit()
                 quit()
 
-
-     #lines below are when player wants to play. screen to switch will be implemented in future:
-      #keysPressed = pygame.key.get_pressed()
-        #handlePlayerMovement(racer,keysPressed)
-
+        #changes position for every car
         for car in Cars:
             car.changePos()
 
+        #changes position for every racer
         for racer in racers:
             checkCollisions(racer,Cars)
 
+        #handles despawn of cars
         handleDespawn(Cars)
 
-        #kills all losing racers
+        #"kills" all losing racers (pops them out of their lists)
         for x, racer in enumerate(racers):  #meaning, for index x corresponding with object "racer" in iterable "racers"
             if racer.health == 0:
                 ge[x].fitness -= 240
@@ -339,14 +339,13 @@ def main(genomes,config):
                 ge.pop(x)
 
 
-        #makes a move
+        #makes a move for each racer according to inputs
         for x, racer in enumerate(racers):
             ge[x].fitness += 1
             outputs = nets[x].activate(tuple(retInputs(Cars,racer)))
 
             # this decides what the player will do
             #find max output, meaning what car wants to go to:
-
             max = outputs[0]
             index = 0
             for i,output in enumerate(outputs):
@@ -354,19 +353,19 @@ def main(genomes,config):
                     index = i
             indexToMove(index, racer)
 
-
+        #if all racers have "died" break out of this loop, crossover and mutate genomes and then return
         if len(racers) == 0:
             stop = True
             break
 
-        for racer in racers:
-            if racer.immunity != 0:
-                racer.immunity -= 1
+        #increments score and number current frame between car spawn frames
         score += 1
         gameTick += 1
 
-        #Optional: this code is for testing if the model can even learn. sets known course and tries to run the
-        #networks untill it goes over a certain threshold
+        #this code is for testing the model sets known course and tries to run the
+        #networks until it goes over a certain threshold
+        #gameTick represents the current time tick between car spawns spawcarIndex is the current car to be
+        #summoned from listSpawnCars
         if listSpawnCars[spawncarIndex][0] == gameTick:
             gameTick = 0
             spawnCar(listSpawnCars[spawncarIndex][1],listSpawnCars[spawncarIndex][2],
@@ -375,21 +374,23 @@ def main(genomes,config):
         if spawncarIndex == 8:
             spawncarIndex = 0
 
-        #this iis for stopping game
+        #this is for stopping game when esc is pressed. we make the outer function p.run() think there is a fitting
+        #genome that passes fitness threshold, then the function stops because there is a fitting genome.
         keysPressed = pygame.key.get_pressed()
         if keysPressed[pygame.K_ESCAPE]:
             ge[0].fitness = 2000 # so we could stop p.run from continuing to run
             score = 2000
+        #stops the game due to previous condition and if the bot has cracked the pattern, so it wont go over to a
+        #never ending loop (loop will only stop if broken manually)
         if score > 1800:
             break
         draw_win(background,racers,Cars)
 
 def runGame():
     racer = Player(startingPos, raceCarCollider, [0, 0], raceCar, racerHealth, 0)
-    score = 0
-    gameTick = 0
     Cars = []
-    clock = pygame.time.Clock() #OPTIONAL: this is if we want the game to run in frames, for ex 60 frames per second
+    clock = pygame.time.Clock() #sets the clock of the game so we can make sure the screen
+    # doesnt refresh more than 60 fps
     stop = False
 
     while (stop != True):  # while the game isnt supposed to stop, it will run
@@ -400,45 +401,64 @@ def runGame():
                 pygame.quit()
                 quit()
 
+        #checks if a key has been pressed
         keysPressed = pygame.key.get_pressed()
+
+        #if key is escape, break
         if keysPressed[pygame.K_ESCAPE]:
             break
 
-        handlePlayerMovement(racer,keysPressed)
+        #changes posiotion for every car
         for car in Cars:
             car.changePos()
+
+        #handles game
+        #========================================
+        handlePlayerMovement(racer,keysPressed)
 
         checkCollisions(racer, Cars)
 
         randomiserCar(Cars)
 
         handleDespawn(Cars)
+        #=======================================
 
+        #checks if racer is not immune, reduce his immunity
         if racer.immunity != 0:
             racer.immunity -= 1
 
+        #if racer loses, break out of the loop
+        if racer.health == 0:
+            break
 
+        #updates screen
         draw_win(background, racer, Cars)
 
 
-
+#function used for initializing the population according to config file. also is in charge of creating a reporter object
+#that views the generation and population status
 def run(config_path):
-    global breakFromMain
+    #converts config file to neat format
     config = neat.config.Config(neat.DefaultGenome,neat.DefaultReproduction,
                                 neat.DefaultSpeciesSet,
                                 neat.DefaultStagnation,config_path)
 
+    #creates population of racers
     p = neat.Population(config)
 
+    #creates a reporter to show learning stats
     p.add_reporter(neat.StdOutReporter(True))
     stats = neat.StatisticsReporter()
     p.add_reporter(stats)
 
-    winner = p.run(main,1000)
-    breakFromMain = False #resets so it can run again after the break from main
+    #runs the learning procces
+    p.run(main,1000)
+
+#this is the first function to be run. it reperesents the starting screen, and the player can navagite from it to the 2
+#game modes: teleop control and machine controlled.
 
 def startScreen():
-    global racerHealth
+    global racerHealth #so it could updare racer health according to the game mode
     stop = False
     while (stop != True):
         for event in pygame.event.get():
@@ -447,14 +467,22 @@ def startScreen():
                 pygame.quit()
                 quit()
 
+        #draws menu screen
         WIN.blit(menuScreen, (0, 0))
+        #checks for key presses
         keysPressed = pygame.key.get_pressed()
-        pygame.display.update()  # actually updates all changes made to screen
+        #updates display on screen
+        pygame.display.update()
+
+        #if 0 pressed, go to machine controlled
         if keysPressed[pygame.K_0]:
             racerHealth = 1
-            local_dir = os.path.dirname(__file__)
-            config_path = os.path.join(local_dir, "ConfigFile.txt")
+            local_dir = os.path.dirname(__file__) #reference the current directory
+            config_path = os.path.join(local_dir, "ConfigFile.txt")#join the directory of config file to this directory
+            #so we can acces it
             run(config_path)
+
+        #if pressed 1, run the teleop game mode
         if keysPressed[pygame.K_1]:
             racerHealth = 3
             runGame()
