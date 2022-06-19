@@ -20,7 +20,7 @@ listSpawnCars = [[100,0,0,5],[20,1,1,5],[20,2,0,5],[40,4,1,3],
 #these variables hold the image files to use to draw the objects on screen
 menuScreen = pygame.image.load(os.path.join('images', 'menuScreen.png')).convert_alpha()
 raceCar = pygame.image.load(os.path.join('images','raceCarPNG.png')).convert_alpha()
-background = pygame.image.load(os.path.join('images','backgroundPNG.png')).convert_alpha()
+background = pygame.image.load(os.path.join('images','BGWithEnvironment.png')).convert_alpha()
 blueCar = pygame.image.load(os.path.join('images','blueCar.png')).convert_alpha()
 greenCar = pygame.image.load(os.path.join('images','greenCar.png')).convert_alpha()
 explosionIMG = pygame.image.load(os.path.join("images","explosionIMG.png")).convert_alpha()
@@ -44,7 +44,8 @@ carCollider = [CollisionBox(13, 0, 48, 7), CollisionBox(4, 7, 65, 108), Collisio
 racerMaxVelocity = 6
 carLimit = 5
 
-
+#this is the moving backround list
+BG = [Entity([0,0],[0],[0,2],background),Entity([0,-855],[0],[0,2],background)]
 #checks for collisions between racer and cars.
 #goes through each car, and uses internal function of class entity "isCollided" in order
 #to figure out if the 2 entities have collided. if so, decrase racer's health
@@ -201,16 +202,25 @@ def indexToMove(index,racer):
 
     racer.changePos()
 
+def drawBackground():
+    global BG
+    for element in BG:
+        element.changePos()
+        WIN.blit(element.texture, tuple(element.position))
+        if element.position[1] > 855:
+            element.position[1] = -854 #because speed is 2, it moves from 855 to -855 in 1 step and second is 854
+
 #draws all entities on the screen, if racer is not list than it is single racer.
 def draw_win(background,racers,Cars):
     #draws background
-    WIN.blit(background,(0,0))
+    drawBackground()
 
     #if racer is list then draw the first racer in the list (game mode 0) if it isnt
     # then move it like one racer (game mode 1)
     if type(racers) is list:
-        WIN.blit(racers[0].texture, tuple(racers[0].position))
-        handleDrawnHealth(racers[0])
+        for racer in racers:
+            WIN.blit(racer.texture, tuple(racer.position))
+            handleDrawnHealth(racer)
     else:
         WIN.blit(racers.texture, tuple(racers.position))
         handleDrawnHealth(racers)
@@ -456,7 +466,6 @@ def run(config_path):
 
 #this is the first function to be run. it reperesents the starting screen, and the player can navagite from it to the 2
 #game modes: teleop control and machine controlled.
-
 def startScreen():
     global racerHealth #so it could updare racer health according to the game mode
     stop = False
@@ -486,6 +495,7 @@ def startScreen():
         if keysPressed[pygame.K_1]:
             racerHealth = 3
             runGame()
+
 
 if __name__ == "__main__": #this line makes sure that if an external file that imports this
     # code tries to run this it wont be able to
