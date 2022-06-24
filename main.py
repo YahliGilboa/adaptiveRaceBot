@@ -157,10 +157,27 @@ def randomiserCar(Cars):
 
 def randomiseCourse():
     course = [None]*(random.randint(10,14))
+    lanes = [0]*5
     for i,car in enumerate(course):
-        car = [random.randint(20,100),random.randint(0,4),random.randint(0,1),random.randint(3,8)]
+        amountOccupied = 0
+        missingLanes = []
+        #makes sure there is a car in each lane for at least 5 lanes
+        if i%5 == 0:
+            for j,lane in enumerate(lanes):
+                if lane == 0:
+                    missingLanes.append(j)
+                if lane > 0:
+                    amountOccupied += 1
+            for missingLane in missingLanes:
+                car = [random.randint(20,100),missingLane,random.randint(0,1),random.randint(3,8)]
+                course[i] = car
+                i += 1
+            i -= 1 #at the end of the loop i increments, and i already incremented i for each car, so decrease 1 in order
+            #to match loop
+        else:
+            car = [random.randint(20,100),random.randint(0,4),random.randint(0,1),random.randint(3,8)]
         course[i] = car
-
+        lanes[car[1]] += 1
     return course
 #handels the despawn of cars
 def handleDespawn(Cars):
