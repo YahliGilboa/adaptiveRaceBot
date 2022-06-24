@@ -25,6 +25,8 @@ pattern1 = [[100, 0, 0, 5], [20, 1, 1, 5], [20, 2, 0, 5], [40, 4, 1, 3],
 pattern2 = [[100, 0, 0, 5], [20, 4, 1, 5], [40, 3, 0, 5], [20, 1, 1, 3],
            [80,0,1,6], [40,3,0,8], [60,2,1,3], [20,1,0,8],[20,0,1,8], [50,0,1,4]]
 
+courseLength = None
+
 generatedPattern = None
 
 
@@ -105,26 +107,18 @@ def spawnCar(lane,color,velocity,Cars):
             if element > 0:
                 amountOccupied += 1
 
-        if amountOccupied  >= 4:
-            if velocity == avgVel:
-                canSpawn = False
     #==========================================================
 
     #if there is car in current lane while trying to spawn this car, and this car's velocity is greater dont spawn it.
     # if it is smaller equal to the smallest car velocity in that lane and distance from that car to top is
     # greater than 150, spawn the car
     #==============================================================
-    minCarVel = 0  #will contain every car in same lane as this car.
-    closestToTop = 0
+    minCarVel = 10  #will contain every car in same lane as this car.
+    closestToTop = 200 #both values of this and minCarVel are above every other car so will only enter it if found another value
     for car in Cars:
         if car.lane == lane:
             minCarVel = car.velocity[1] #getting a value from the sample
             closestToTop = car.position[1]
-
-    for car in Cars:
-        if car.lane == lane:
-            minCarVel = min(minCarVel,car.velocity[1])
-            closestToTop = min(closestToTop,car.position[1])
 
     if occupiedLanes[lane] > 0:
         if minCarVel < velocity:
@@ -134,7 +128,7 @@ def spawnCar(lane,color,velocity,Cars):
     #======================================================================
 
     #if there are less cars than the car limit and the car can spawn, spawn it
-    if len(Cars) < carLimit and canSpawn:
+    if (len(Cars) < carLimit) and canSpawn:
         grassLength = 409
         roadOffsetleft = 14
         laneDiff = 108
@@ -156,11 +150,13 @@ def randomiserCar(Cars):
         spawnCar(lane,color,velocity,Cars)
 
 def randomiseCourse():
-    course = [None]*(random.randint(15,20))
+    global courseLength
+    course = [None]*(random.randint(10,14))
+    courseLength = len(course)
     lanes = [0]*5
     missingLanes = []
-    for i,car in enumerate(course):
-        print(i)
+    i = 0
+    while i < courseLength:
         #makes sure there is a car in each lane for at least 5 lanes
         if i%5 == 0 and i != 0:
             #checks how many missing lanes there are
@@ -172,17 +168,24 @@ def randomiseCourse():
                 car = [random.randint(10,50),missingLane,random.randint(0,1),random.randint(3,8)]
                 course[i] = car
                 i += 1
+                if i == courseLength:
+                    break
 
-            if missingLanes != []:
-                i -= 1 #at the end of the loop i increments, and i already incremented i for each car, so decrease 1 in order
-                 #to match loop, that is, if the missing loop was entered
-                missingLanes = []
+
+            if missingLanes == []:
+                car = [random.randint(20, 100), random.randint(0, 4), random.randint(0, 1), random.randint(3, 8)]
+                course[i] = car
+                lanes[car[1]] += 1
+                i += 1
+            missingLanes = []
 
 
         else:
             car = [random.randint(20,100),random.randint(0,4),random.randint(0,1),random.randint(3,8)]
             course[i] = car
             lanes[car[1]] += 1
+            i += 1
+
     return course
 #handels the despawn of cars
 def handleDespawn(Cars):
@@ -438,7 +441,7 @@ def main(genomes,config):
             spawnCar(course[spawncarIndex][1], course[spawncarIndex][2],
                      course[spawncarIndex][3], Cars)
             spawncarIndex += 1
-        if spawncarIndex == 8:
+        if spawncarIndex == courseLength:
             spawncarIndex = 0
 
         #this is for stopping game when esc is pressed. we make the outer function p.run() think there is a fitting
@@ -511,7 +514,6 @@ def runViz(genome,config,pattern):
     net = neat.nn.FeedForwardNetwork.create(genome,config)
     racer = Player(startingPos, raceCarCollider, [0, 0], raceCar, racerHealth, 0)  # adds racer
     course = pattern
-
     clock = pygame.time.Clock() #sets the clock of the game so we can make sure the screen
     stop = False #stop condition for the while loop of game
     while (stop != True):#while the game isnt supposed to stop, it will run
@@ -537,7 +539,7 @@ def runViz(genome,config,pattern):
         score += 1
         gameTick += 1
 
-        #moves car
+        #moves racecar
         outputs = net.activate(retInputs(Cars,racer))
         # this decides what the player will do
         # find max output, meaning what car wants to go to:
@@ -548,7 +550,6 @@ def runViz(genome,config,pattern):
                 index = i
         indexToMove(index, racer)
 
-
         #this code is for testing the model sets known course and tries to run the
         #networks until it goes over a certain threshold
         #gameTick represents the current time tick between car spawns spawcarIndex is the current car to be
@@ -558,7 +559,7 @@ def runViz(genome,config,pattern):
             spawnCar(course[spawncarIndex][1], course[spawncarIndex][2],
                      course[spawncarIndex][3], Cars)
             spawncarIndex += 1
-        if spawncarIndex == 8:
+        if spawncarIndex == courseLength:
             spawncarIndex = 0
 
         #this is for stopping game when esc is pressed. we make the outer function p.run() think there is a fitting
@@ -580,7 +581,7 @@ def runViz(genome,config,pattern):
 #function used for initializing the population according to config file. also is in charge of creating a reporter object
 #that views the generation and population status
 def run(config_path):
-    global generatedPattern
+    global generatedPattern,courseLength
     #converts config file to neat format
     config = neat.config.Config(neat.DefaultGenome,neat.DefaultReproduction,
                                 neat.DefaultSpeciesSet,
@@ -637,7 +638,7 @@ def initGeneratedViz(config_path):
 #this is the first function to be run. it reperesents the starting screen, and the player can navagite from it to the 2
 #game modes: teleop control and machine controlled.
 def startScreen():
-    global racerHealth #so it could updare racer health according to the game mode
+    global pattern1,pattern2,courseLength, racerHealth #so it could updare racer health according to the game mode
     stop = False
     while (stop != True):
         for event in pygame.event.get():
@@ -668,10 +669,12 @@ def startScreen():
 
         if keysPressed[pygame.K_1]:
             racerHealth = 1
+            courseLength = len(pattern1)
             initViz1(config_path)
 
         if keysPressed[pygame.K_2]:
             racerHealth = 1
+            courseLength = len(pattern2)
             initViz2(config_path)
 
         # if pressed 3, run the teleop game mode
