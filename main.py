@@ -7,15 +7,26 @@ import pygame
 import math
 import random
 import neat
+import pickle
+
+#make sure we can use pygame assets such as fonts
+pygame.init()
+
 
 screenWidth,screenHeight = 1352,855 #defining window height according to background image size
 WIN = pygame.display.set_mode((screenWidth,screenHeight)) #defining the window through pygame - so we can
 #use it to open a window on screen in the resulotion of the background
 
-#this list contains lists of: frames until spawn,lane,color,velocity
-#this list contains a constant wave for the raceCar to learn from in the bot portion of the game
-listSpawnCars = [[100,0,0,5],[20,1,1,5],[20,2,0,5],[40,4,1,3],
-                 [120,0,1,6],[40,2,0,8],[20,1,1,3],[20,3,0,8],[40,4,1,4]]
+#these lists contain lists of: frames until spawn,lane,color,velocity
+#these lists contain a constant wave for the raceCar to learn from in the bot portion of the game
+pattern1 = [[100, 0, 0, 5], [20, 1, 1, 5], [20, 2, 0, 5], [40, 4, 1, 3],
+            [120,0,1,6], [40,2,0,8], [20,1,1,3], [20,3,0,8], [40,4,1,4]]
+
+pattern2 = [[100, 0, 0, 5], [20, 4, 1, 5], [40, 3, 0, 5], [20, 1, 1, 3],
+           [80,0,1,6], [40,3,0,8], [60,2,1,3], [20,1,0,8],[20,0,1,8], [50,0,1,4]]
+
+generatedPattern = None
+
 
 #these variables hold the image files to use to draw the objects on screen
 menuScreen = pygame.image.load(os.path.join('images', 'menuScreen.png')).convert_alpha()
@@ -46,6 +57,21 @@ carLimit = 5
 
 #this is the moving backround list
 BG = [Entity([0,0],[0],[0,2],background),Entity([0,-855],[0],[0,2],background)]
+
+#score variables
+font = pygame.font.SysFont("comicbd",80)
+textX = 1050
+textY = 10
+
+def drawScore(score):
+    score = font.render("Score: " +str(score//60),True,(255,255,255)) #score is counted in game ticks, score is incremented every
+    # second meaning 60 frames. so I divide
+    #and round down by 60 so the score will go up by the end of the second.
+
+    #places text on screen (only prepares it, dows not draw)
+    WIN.blit(score,(textX,textY))
+
+
 #checks for collisions between racer and cars.
 #goes through each car, and uses internal function of class entity "isCollided" in order
 #to figure out if the 2 entities have collided. if so, decrase racer's health
@@ -129,7 +155,13 @@ def randomiserCar(Cars):
         velocity =  (random.randint(3, 8))
         spawnCar(lane,color,velocity,Cars)
 
+def randomiseCourse():
+    course = [None]*(random.randint(10,14))
+    for i,car in enumerate(course):
+        car = [random.randint(20,100),random.randint(0,4),random.randint(0,1),random.randint(3,8)]
+        course[i] = car
 
+    return course
 #handels the despawn of cars
 def handleDespawn(Cars):
     for car in Cars:
@@ -211,7 +243,7 @@ def drawBackground():
             element.position[1] = -854 #because speed is 2, it moves from 855 to -855 in 1 step and second is 854
 
 #draws all entities on the screen, if racer is not list than it is single racer.
-def draw_win(background,racers,Cars):
+def draw_win(racers,Cars,score):
     #draws background
     drawBackground()
 
@@ -229,6 +261,8 @@ def draw_win(background,racers,Cars):
     for car in Cars:
         WIN.blit(car.texture,tuple(car.position))
 
+    #draws score
+    drawScore(score)
     #updates display on screen
     pygame.display.update()
 
@@ -310,7 +344,8 @@ def main(genomes,config):
     score = 0
     gameTick = 0
     Cars = []
-    spawncarIndex = 0 #variable used for the known set of cars, in order to check validation of a learning curve.
+    spawncarIndex = 0 #variable used for the known set of cars.
+    course = generatedPattern
 
     for _, g in genomes: #genomes contains lists tuples of ID's and genomes of each network,
         # underscore for ignoring the id part in the tuple.
@@ -333,7 +368,7 @@ def main(genomes,config):
         for car in Cars:
             car.changePos()
 
-        #changes position for every racer
+        #checks collisions for every racer
         for racer in racers:
             checkCollisions(racer,Cars)
 
@@ -375,11 +410,11 @@ def main(genomes,config):
         #this code is for testing the model sets known course and tries to run the
         #networks until it goes over a certain threshold
         #gameTick represents the current time tick between car spawns spawcarIndex is the current car to be
-        #summoned from listSpawnCars
-        if listSpawnCars[spawncarIndex][0] == gameTick:
+        #summoned from course
+        if course[spawncarIndex][0] == gameTick:
             gameTick = 0
-            spawnCar(listSpawnCars[spawncarIndex][1],listSpawnCars[spawncarIndex][2],
-            listSpawnCars[spawncarIndex][3],Cars)
+            spawnCar(course[spawncarIndex][1], course[spawncarIndex][2],
+                     course[spawncarIndex][3], Cars)
             spawncarIndex += 1
         if spawncarIndex == 8:
             spawncarIndex = 0
@@ -394,7 +429,7 @@ def main(genomes,config):
         #never ending loop (loop will only stop if broken manually)
         if score > 1800:
             break
-        draw_win(background,racers,Cars)
+        draw_win(racers,Cars,score)
 
 def runGame():
     racer = Player(startingPos, raceCarCollider, [0, 0], raceCar, racerHealth, 0)
@@ -402,6 +437,7 @@ def runGame():
     clock = pygame.time.Clock() #sets the clock of the game so we can make sure the screen
     # doesnt refresh more than 60 fps
     stop = False
+    score = 0
 
     while (stop != True):  # while the game isnt supposed to stop, it will run
         clock.tick(FPS) #OPTIONAL: makes sure the while loop runs 60 FPS, not more.
@@ -441,13 +477,88 @@ def runGame():
         if racer.health == 0:
             break
 
+        score += 1
         #updates screen
-        draw_win(background, racer, Cars)
+        draw_win(racer, Cars,score)
 
+def runViz(genome,config,pattern):
+    score = 0
+    gameTick = 0
+    Cars = []
+    spawncarIndex = 0 #variable used for the known set of cars, in order to check validation of a learning curve.
+    net = neat.nn.FeedForwardNetwork.create(genome,config)
+    racer = Player(startingPos, raceCarCollider, [0, 0], raceCar, racerHealth, 0)  # adds racer
+    course = pattern
+
+    clock = pygame.time.Clock() #sets the clock of the game so we can make sure the screen
+    stop = False #stop condition for the while loop of game
+    while (stop != True):#while the game isnt supposed to stop, it will run
+        clock.tick(180) #OPTIONAL: makes sure the while loop runs 60 FPS, not more.
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                stop = True
+                pygame.quit()
+                quit()
+
+        #changes position for every car
+        for car in Cars:
+            car.changePos()
+
+        #checks position for racer
+        checkCollisions(racer,Cars)
+
+        #handles despawn of cars
+        handleDespawn(Cars)
+
+        #increments score and number current frame between car spawn frames
+        score += 1
+        gameTick += 1
+
+        #moves car
+        outputs = net.activate(retInputs(Cars,racer))
+        # this decides what the player will do
+        # find max output, meaning what car wants to go to:
+        max = outputs[0]
+        index = 0
+        for i, output in enumerate(outputs):
+            if output > max:
+                index = i
+        indexToMove(index, racer)
+
+
+        #this code is for testing the model sets known course and tries to run the
+        #networks until it goes over a certain threshold
+        #gameTick represents the current time tick between car spawns spawcarIndex is the current car to be
+        #summoned from course
+        if course[spawncarIndex][0] == gameTick:
+            gameTick = 0
+            spawnCar(course[spawncarIndex][1], course[spawncarIndex][2],
+                     course[spawncarIndex][3], Cars)
+            spawncarIndex += 1
+        if spawncarIndex == 8:
+            spawncarIndex = 0
+
+        #this is for stopping game when esc is pressed. we make the outer function p.run() think there is a fitting
+        #genome that passes fitness threshold, then the function stops because there is a fitting genome.
+        keysPressed = pygame.key.get_pressed()
+        if keysPressed[pygame.K_ESCAPE]:
+            break
+        #stops the game due to previous condition and if the bot has cracked the pattern, so it wont go over to a
+        #never ending loop (loop will only stop if broken manually)
+        if score > 1800:
+            break
+
+        #breaks if racer loses
+        if racer.health == 0:
+            break
+
+        draw_win(racer,Cars,score)
 
 #function used for initializing the population according to config file. also is in charge of creating a reporter object
 #that views the generation and population status
 def run(config_path):
+    global generatedPattern
     #converts config file to neat format
     config = neat.config.Config(neat.DefaultGenome,neat.DefaultReproduction,
                                 neat.DefaultSpeciesSet,
@@ -461,8 +572,45 @@ def run(config_path):
     stats = neat.StatisticsReporter()
     p.add_reporter(stats)
 
+    #sets generated corse
+    generatedPattern = randomiseCourse()
+
     #runs the learning procces
-    p.run(main,1000)
+    winner = p.run(main,1000)
+    with open("winnerGenerated","wb") as file:
+        pickle.dump(winner,file)
+
+def initViz1(config_path):
+    #converts config file to neat format
+    config = neat.config.Config(neat.DefaultGenome,neat.DefaultReproduction,
+                                neat.DefaultSpeciesSet,
+                                neat.DefaultStagnation,config_path)
+
+    with open("winner1", "rb") as file:
+        racer = pickle.load(file)
+    runViz(racer,config,pattern1)
+
+
+def initViz2(config_path):
+    #converts config file to neat format
+    config = neat.config.Config(neat.DefaultGenome,neat.DefaultReproduction,
+                                neat.DefaultSpeciesSet,
+                                neat.DefaultStagnation,config_path)
+
+    with open("winner2", "rb") as file:
+        racer = pickle.load(file)
+    runViz(racer,config,pattern2)
+
+def initGeneratedViz(config_path):
+    # converts config file to neat format
+    config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction,
+                                neat.DefaultSpeciesSet,
+                                neat.DefaultStagnation, config_path)
+
+    with open("winnerGenerated", "rb") as file:
+        racer = pickle.load(file)
+    runViz(racer, config, generatedPattern)
+
 
 #this is the first function to be run. it reperesents the starting screen, and the player can navagite from it to the 2
 #game modes: teleop control and machine controlled.
@@ -476,6 +624,10 @@ def startScreen():
                 pygame.quit()
                 quit()
 
+        local_dir = os.path.dirname(__file__)  # reference the current directory
+        config_path = os.path.join(local_dir, "ConfigFile.txt")  # join the directory of config file to this directory
+        # so we can acces it
+
         #draws menu screen
         WIN.blit(menuScreen, (0, 0))
         #checks for key presses
@@ -484,18 +636,26 @@ def startScreen():
         pygame.display.update()
 
         #if 0 pressed, go to machine controlled
-        if keysPressed[pygame.K_0]:
+        if keysPressed[pygame.K_g]:
             racerHealth = 1
-            local_dir = os.path.dirname(__file__) #reference the current directory
-            config_path = os.path.join(local_dir, "ConfigFile.txt")#join the directory of config file to this directory
-            #so we can acces it
             run(config_path)
 
-        #if pressed 1, run the teleop game mode
+        if keysPressed[pygame.K_0] and generatedPattern != None:
+            racerHealth = 1
+            initGeneratedViz(config_path)
+
         if keysPressed[pygame.K_1]:
+            racerHealth = 1
+            initViz1(config_path)
+
+        if keysPressed[pygame.K_2]:
+            racerHealth = 1
+            initViz2(config_path)
+
+        # if pressed 3, run the teleop game mode
+        if keysPressed[pygame.K_3]:
             racerHealth = 3
             runGame()
-
 
 if __name__ == "__main__": #this line makes sure that if an external file that imports this
     # code tries to run this it wont be able to
